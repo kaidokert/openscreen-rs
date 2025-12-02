@@ -1,0 +1,28 @@
+[package]
+name = "openscreen-crypto-rustcrypto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+openscreen-crypto = { path = "../openscreen-crypto" }
+
+# SPAKE2 implementation
+spake2 = "0.3"
+
+# RustCrypto primitives
+sha2 = "0.10"
+hmac = "0.12"
+hkdf = "0.12"
+subtle = "2.6"
+
+# Utilities
+heapless = { workspace = true }
+tracing = "0.1"
+
+[dev-dependencies]
+test-log = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

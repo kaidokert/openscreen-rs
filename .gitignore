@@ -1,0 +1,6 @@
+/target
+Cargo.lock
+*.log
+logs/*
+.DS_Store
+.openscreen/

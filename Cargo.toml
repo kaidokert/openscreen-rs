@@ -1,0 +1,73 @@
+[workspace]
+members = [
+    "openscreen-common",
+    "openscreen-network",
+    "openscreen-application",
+    "openscreen-crypto",
+    "openscreen-crypto-rustcrypto",
+    "openscreen-quinn",
+    "openscreen-discovery",
+    "openscreen-discovery-mock",
+    "openscreen-discovery-mdns",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/your-org/openscreen_rs_priv"
+
+[workspace.lints.clippy]
+# Enable clippy by default and treat warnings as errors in CI
+# Run with: cargo clippy --workspace -- -D warnings
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# TODO: Clean up these allows - ideally we should fix the code to satisfy pedantic lints
+# rather than blanket-allowing them. For now, these are allowed to get clippy enabled
+# without blocking development. Each should be revisited and either:
+# 1. Fixed in the code to satisfy the lint
+# 2. Selectively allowed at the function/module level with justification
+# 3. Kept here with detailed reasoning why it's inappropriate for this codebase
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+doc_markdown = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+ignored_unit_patterns = "allow"
+elidable_lifetime_names = "allow"
+unnecessary_wraps = "allow"
+unused_self = "allow"
+needless_pass_by_value = "allow"
+single_match_else = "allow"
+
+[patch.crates-io]
+# Use patched mdns-sd with configurable port for development
+mdns-sd = { git = "https://github.com/kaidokert/mdns-sd", tag = "v0.17.0_custom_port_1" }
+
+[workspace.dependencies]
+# Core protocol (no_std)
+openscreen-common = { path = "openscreen-common" }
+openscreen-network = { path = "openscreen-network" }
+openscreen-application = { path = "openscreen-application" }
+openscreen-crypto = { path = "openscreen-crypto" }
+
+# Collections
+heapless = { version = "0.8", default-features = false }
+
+# Serialization
+minicbor = { version = "0.25", default-features = false }
+
+# Cryptography
+spake2 = { version = "0.4", default-features = false }
+sha2 = { version = "0.10", default-features = false }
+hmac = { version = "0.12", default-features = false }
+hkdf = { version = "0.12", default-features = false }
+p256 = { version = "0.13", default-features = false }
+rand_core = { version = "0.6", default-features = false }
+
+# QUIC implementations
+quinn = "0.11"
+s2n-quic = "1.44"

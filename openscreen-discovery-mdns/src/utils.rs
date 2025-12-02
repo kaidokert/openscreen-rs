@@ -1,0 +1,230 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Utility functions for mDNS service handling
+
+use openscreen_discovery::{Fingerprint, FingerprintError, ServiceInfo, TxtRecords};
+use std::collections::HashMap;
+use std::time::SystemTime;
+
+/// Sanitize display name for mDNS instance name
+///
+/// Per W3C spec and DNS label limits (RFC 1035):
+/// - Maximum 63 bytes
+/// - If truncated, null-terminate
+pub fn sanitize_instance_name(display_name: &str) -> String {
+    const MAX_LEN: usize = 63;
+    if display_name.len() > MAX_LEN {
+        // Truncate and null-terminate
+        format!("{}\0", &display_name[..MAX_LEN])
+    } else {
+        display_name.to_string()
+    }
+}
+
+/// Build TXT record properties from PublishInfo
+///
+/// Returns a HashMap suitable for mdns-sd
+pub fn build_txt_properties(txt: &TxtRecords) -> HashMap<String, String> {
+    let mut props = HashMap::new();
+    props.insert("fp".to_string(), txt.fp.clone());
+    props.insert("mv".to_string(), txt.mv.to_string());
+    props.insert("at".to_string(), txt.at.clone());
+    props
+}
+
+/// Parse TXT record properties into structured data
+///
+/// Extracts fp, mv, and at values from mDNS TXT records
+pub fn parse_txt_properties(
+    properties: &mdns_sd::TxtProperties,
+) -> Result<(Fingerprint, u32, String), ParseError> {
+    let fp = properties.get("fp").ok_or(ParseError::MissingField("fp"))?;
+    let fp_str = fp.val_str();
+    let fingerprint = Fingerprint::from_base64(fp_str).map_err(ParseError::InvalidFingerprint)?;
+
+    let mv = properties.get("mv").ok_or(ParseError::MissingField("mv"))?;
+    let mv_str = mv.val_str();
+    let metadata_version = mv_str
+        .parse::<u32>()
+        .map_err(|_| ParseError::InvalidMetadataVersion)?;
+
+    let auth_token = properties
+        .get("at")
+        .ok_or(ParseError::MissingField("at"))?
+        .val_str()
+        .to_string();
+
+    Ok((fingerprint, metadata_version, auth_token))
+}
+
+/// Build ServiceInfo from mdns-sd ResolvedService
+///
+/// Converts from mdns-sd types to our ServiceInfo
+pub fn service_info_from_mdns_resolved(
+    mdns_info: &mdns_sd::ResolvedService,
+) -> Result<ServiceInfo, ParseError> {
+    let (fingerprint, metadata_version, auth_token) =
+        parse_txt_properties(mdns_info.get_properties())?;
+
+    // Get host address: Prefer IPv4 over IPv6, and non-link-local over link-local
+    // Link-local IPv6 addresses (fe80::...) often include zone IDs (%lo0, %eth0, etc.)
+    // which can't be parsed as socket addresses. IPv4 addresses are more reliable.
+    let addresses = mdns_info.get_addresses();
+
+    // Try to find an IPv4 address first
+    let host = addresses
+        .iter()
+        .find(|addr| addr.is_ipv4())
+        .or_else(|| {
+            // If no IPv4, try to find a non-link-local IPv6 address
+            addresses
+                .iter()
+                .find(|addr| addr.is_ipv6() && !addr.to_string().starts_with("fe80:"))
+        })
+        .or_else(|| {
+            // Last resort: use any address and strip zone ID if present
+            addresses.iter().next()
+        })
+        .ok_or(ParseError::NoAddress)?
+        .to_string();
+
+    // Strip IPv6 zone ID if present (e.g., "fe80::1%lo0" -> "fe80::1")
+    let host = if let Some(zone_index) = host.find('%') {
+        host[..zone_index].to_string()
+    } else {
+        host
+    };
+
+    Ok(ServiceInfo {
+        instance_name: mdns_info.get_fullname().to_string(),
+        display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
+        host,
+        port: mdns_info.get_port(),
+        fingerprint,
+        metadata_version,
+        auth_token: openscreen_discovery::AuthToken::from_string(auth_token),
+        discovered_at: SystemTime::now(),
+    })
+}
+
+/// Build ServiceInfo from mdns-sd ServiceInfo
+///
+/// Converts from mdns-sd types to our ServiceInfo
+#[allow(dead_code)]
+pub fn service_info_from_mdns(mdns_info: &mdns_sd::ServiceInfo) -> Result<ServiceInfo, ParseError> {
+    let (fingerprint, metadata_version, auth_token) =
+        parse_txt_properties(mdns_info.get_properties())?;
+
+    // Get host address: Prefer IPv4 over IPv6, and non-link-local over link-local
+    // Link-local IPv6 addresses (fe80::...) often include zone IDs (%lo0, %eth0, etc.)
+    // which can't be parsed as socket addresses. IPv4 addresses are more reliable.
+    let addresses = mdns_info.get_addresses();
+
+    // Try to find an IPv4 address first
+    let host = addresses
+        .iter()
+        .find(|addr| addr.is_ipv4())
+        .or_else(|| {
+            // If no IPv4, try to find a non-link-local IPv6 address
+            addresses
+                .iter()
+                .find(|addr| addr.is_ipv6() && !addr.to_string().starts_with("fe80:"))
+        })
+        .or_else(|| {
+            // Last resort: use any address and strip zone ID if present
+            addresses.iter().next()
+        })
+        .ok_or(ParseError::NoAddress)?
+        .to_string();
+
+    // Strip IPv6 zone ID if present (e.g., "fe80::1%lo0" -> "fe80::1")
+    let host = if let Some(zone_index) = host.find('%') {
+        host[..zone_index].to_string()
+    } else {
+        host
+    };
+
+    Ok(ServiceInfo {
+        instance_name: mdns_info.get_fullname().to_string(),
+        display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
+        host,
+        port: mdns_info.get_port(),
+        fingerprint,
+        metadata_version,
+        auth_token: openscreen_discovery::AuthToken::from_string(auth_token),
+        discovered_at: SystemTime::now(),
+    })
+}
+
+/// Errors that can occur when parsing mDNS service info
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("Missing required TXT record field: {0}")]
+    MissingField(&'static str),
+
+    #[error("Invalid fingerprint: {0}")]
+    InvalidFingerprint(#[from] FingerprintError),
+
+    #[error("Invalid metadata version (not a valid u32)")]
+    InvalidMetadataVersion,
+
+    #[error("No address found for service")]
+    NoAddress,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitize_instance_name_short() {
+        let name = "Short Name";
+        assert_eq!(sanitize_instance_name(name), "Short Name");
+    }
+
+    #[test]
+    fn test_sanitize_instance_name_long() {
+        let name = "A".repeat(100);
+        let sanitized = sanitize_instance_name(&name);
+        assert!(sanitized.len() <= 64); // 63 + null terminator
+        assert!(sanitized.ends_with('\0'));
+    }
+
+    #[test]
+    fn test_sanitize_instance_name_exactly_63() {
+        let name = "A".repeat(63);
+        let sanitized = sanitize_instance_name(&name);
+        assert_eq!(sanitized.len(), 63);
+        assert!(!sanitized.ends_with('\0'));
+    }
+
+    #[test]
+    fn test_build_txt_properties() {
+        let txt = TxtRecords {
+            fp: "test_fingerprint".to_string(),
+            mv: 42,
+            at: "test_token".to_string(),
+        };
+
+        let props = build_txt_properties(&txt);
+        assert_eq!(props.get("fp").unwrap(), "test_fingerprint");
+        assert_eq!(props.get("mv").unwrap(), "42");
+        assert_eq!(props.get("at").unwrap(), "test_token");
+    }
+
+    // Note: parse_txt_properties tests require mdns-sd::TxtProperties which
+    // is complex to construct in tests. These are integration-tested via
+    // end-to-end mDNS tests instead.
+}

@@ -1,0 +1,26 @@
+    [package]
+name = "openscreen-discovery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = "2.0"
+async-trait = "0.1"
+futures = "0.3"
+base64 = "0.22"
+sha2 = "0.10"
+hex = "0.4"
+getrandom = "0.2"
+
+# For certificate parsing (SPKI extraction)
+x509-parser = "0.16"
+der-parser = "9.0"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+rcgen = "0.13"
+
+[lints]
+workspace = true
