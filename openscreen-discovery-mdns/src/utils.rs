@@ -33,6 +33,17 @@ pub fn sanitize_instance_name(display_name: &str) -> String {
     }
 }
 
+/// Convert mdns-sd ScopedIp to IpAddr by stripping scope ID if present
+fn scoped_ip_to_ip_addr(host: &mdns_sd::ScopedIp) -> Result<core::net::IpAddr, ParseError> {
+    let host_str = host.to_string();
+    let host_clean = if let Some(idx) = host_str.find('%') {
+        &host_str[..idx]
+    } else {
+        &host_str
+    };
+    host_clean.parse().map_err(|_| ParseError::NoAddress)
+}
+
 /// Build TXT record properties from TxtRecords.
 ///
 /// Returns TxtProperty values with raw bytes, suitable for mdns-sd.
@@ -105,14 +116,7 @@ pub fn service_info_from_mdns_resolved(
         })
         .ok_or(ParseError::NoAddress)?;
 
-    // Convert ScopedIp to IpAddr (stripping scope ID if present)
-    let host_str = host.to_string();
-    let host_clean = if let Some(idx) = host_str.find('%') {
-        &host_str[..idx]
-    } else {
-        &host_str
-    };
-    let ip_address: core::net::IpAddr = host_clean.parse().map_err(|_| ParseError::NoAddress)?;
+    let ip_address = scoped_ip_to_ip_addr(host)?;
 
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
@@ -155,14 +159,7 @@ pub fn service_info_from_mdns(mdns_info: &mdns_sd::ServiceInfo) -> Result<Servic
         })
         .ok_or(ParseError::NoAddress)?;
 
-    // Convert ScopedIp to IpAddr (stripping scope ID if present)
-    let host_str = host.to_string();
-    let host_clean = if let Some(idx) = host_str.find('%') {
-        &host_str[..idx]
-    } else {
-        &host_str
-    };
-    let ip_address: core::net::IpAddr = host_clean.parse().map_err(|_| ParseError::NoAddress)?;
+    let ip_address = *host;
 
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
