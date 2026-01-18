@@ -153,7 +153,7 @@ async fn run_sender(args: &Args) -> Result<()> {
         let service_info = ServiceInfo {
             instance_name: host.clone(),
             display_name: host.clone(),
-            host: host.clone(),
+            ip_address: host.clone(),
             port: args.direct_port,
             fingerprint,
             metadata_version: 1,
@@ -195,7 +195,7 @@ async fn run_sender(args: &Args) -> Result<()> {
                 format!("[{}]", i + 1).bright_white().bold(),
                 service.display_name.bright_white(),
                 &service.fingerprint.to_hex()[..16],
-                service.host,
+                service.ip_address,
                 service.port
             );
         }
@@ -209,7 +209,7 @@ async fn run_sender(args: &Args) -> Result<()> {
         );
         println!();
 
-        let hostname = selected.host.clone();
+        let hostname = selected.ip_address.clone();
 
         (selected.clone(), hostname)
     };

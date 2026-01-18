@@ -32,8 +32,8 @@ pub struct ServiceInfo {
     /// Display name (decoded from instance name)
     pub display_name: String,
 
-    /// Hostname or IP address
-    pub host: String,
+    /// IP address (v4 or v6) 
+    pub ip_address: String,
 
     /// Port number
     pub port: u16,
@@ -165,7 +165,7 @@ mod tests {
         let info1 = ServiceInfo {
             instance_name: "Device 1".to_string(),
             display_name: "Device 1".to_string(),
-            host: "192.168.1.1".to_string(),
+            ip_address: "192.168.1.1".to_string(),
             port: 4433,
             fingerprint: fp1,
             metadata_version: 1,
@@ -176,7 +176,7 @@ mod tests {
         let info2 = ServiceInfo {
             instance_name: "Device 1 (2)".to_string(), // Different name!
             display_name: "Device 1".to_string(),
-            host: "192.168.1.2".to_string(), // Different host!
+            ip_address: "192.168.1.2".to_string(), // Different ip!
             port: 5544,                      // Different port!
             fingerprint: fp1,                // Same fingerprint
             metadata_version: 2,
@@ -187,7 +187,7 @@ mod tests {
         let info3 = ServiceInfo {
             instance_name: "Device 1".to_string(),
             display_name: "Device 1".to_string(),
-            host: "192.168.1.1".to_string(),
+            ip_address: "192.168.1.1".to_string(),
             port: 4433,
             fingerprint: fp2, // Different fingerprint
             metadata_version: 1,

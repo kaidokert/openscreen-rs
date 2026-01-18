@@ -116,7 +116,7 @@ pub fn service_info_from_mdns_resolved(
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
         display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
-        host,
+        ip_address: host,
         port: mdns_info.get_port(),
         fingerprint,
         metadata_version,
@@ -165,7 +165,7 @@ pub fn service_info_from_mdns(mdns_info: &mdns_sd::ServiceInfo) -> Result<Servic
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
         display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
-        host,
+        ip_address: host,
         port: mdns_info.get_port(),
         fingerprint,
         metadata_version,
