@@ -116,6 +116,10 @@ async fn run_sender(args: &Args) -> Result<()> {
         println!("  Host: {host}");
         println!("  Port: {}", args.direct_port);
 
+        let ip_address: core::net::IpAddr = host
+            .parse()
+            .context("Failed to parse direct host as IP address")?;
+
         // Parse fingerprint if provided, otherwise use dummy (all zeros)
         let fingerprint = if let Some(fp_hex) = &args.expected_fingerprint {
             println!("  Expected fingerprint: {}", &fp_hex[..16].bright_cyan());
@@ -153,14 +157,14 @@ async fn run_sender(args: &Args) -> Result<()> {
         let service_info = ServiceInfo {
             instance_name: host.clone(),
             display_name: host.clone(),
-            ip_address: host.clone(),
+            ip_address,
             port: args.direct_port,
             fingerprint,
             metadata_version: 1,
             auth_token,
             discovered_at: std::time::SystemTime::now(),
         };
-        (service_info, host.clone())
+        (service_info, ip_address)
     } else {
         // Discover devices via mDNS
         println!("WAIT: Discovering OpenScreen receivers...");
@@ -209,7 +213,7 @@ async fn run_sender(args: &Args) -> Result<()> {
         );
         println!();
 
-        let hostname = selected.ip_address.clone();
+        let hostname = selected.ip_address;
 
         (selected.clone(), hostname)
     };
@@ -258,11 +262,9 @@ async fn run_sender(args: &Args) -> Result<()> {
     );
     std::io::Write::flush(&mut std::io::stdout())?;
 
-    let server_addr = format!("{}:{}", hostname, service_info.port)
-        .parse()
-        .context("Failed to parse server address")?;
+    let server_addr = core::net::SocketAddr::new(hostname, service_info.port);
 
-    match client.connect(server_addr, &hostname).await {
+    match client.connect(server_addr, &hostname.to_string()).await {
         Ok(()) => {
             println!("OK:");
             info!("QUIC connection and authentication complete");

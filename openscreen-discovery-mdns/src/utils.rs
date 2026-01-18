@@ -103,20 +103,21 @@ pub fn service_info_from_mdns_resolved(
             // Last resort: use any address and strip zone ID if present
             addresses.iter().next()
         })
-        .ok_or(ParseError::NoAddress)?
-        .to_string();
+        .ok_or(ParseError::NoAddress)?;
 
-    // Strip IPv6 zone ID if present (e.g., "fe80::1%lo0" -> "fe80::1")
-    let host = if let Some(zone_index) = host.find('%') {
-        host[..zone_index].to_string()
+    // Convert ScopedIp to IpAddr (stripping scope ID if present)
+    let host_str = host.to_string();
+    let host_clean = if let Some(idx) = host_str.find('%') {
+        &host_str[..idx]
     } else {
-        host
+        &host_str
     };
+    let ip_address: core::net::IpAddr = host_clean.parse().map_err(|_| ParseError::NoAddress)?;
 
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
         display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
-        ip_address: host,
+        ip_address,
         port: mdns_info.get_port(),
         fingerprint,
         metadata_version,
@@ -152,20 +153,21 @@ pub fn service_info_from_mdns(mdns_info: &mdns_sd::ServiceInfo) -> Result<Servic
             // Last resort: use any address and strip zone ID if present
             addresses.iter().next()
         })
-        .ok_or(ParseError::NoAddress)?
-        .to_string();
+        .ok_or(ParseError::NoAddress)?;
 
-    // Strip IPv6 zone ID if present (e.g., "fe80::1%lo0" -> "fe80::1")
-    let host = if let Some(zone_index) = host.find('%') {
-        host[..zone_index].to_string()
+    // Convert ScopedIp to IpAddr (stripping scope ID if present)
+    let host_str = host.to_string();
+    let host_clean = if let Some(idx) = host_str.find('%') {
+        &host_str[..idx]
     } else {
-        host
+        &host_str
     };
+    let ip_address: core::net::IpAddr = host_clean.parse().map_err(|_| ParseError::NoAddress)?;
 
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
         display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
-        ip_address: host,
+        ip_address,
         port: mdns_info.get_port(),
         fingerprint,
         metadata_version,

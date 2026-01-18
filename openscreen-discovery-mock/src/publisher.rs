@@ -55,7 +55,7 @@ impl DiscoveryPublisher for MockPublisher {
         let service_info = ServiceInfo {
             instance_name: info.display_name.clone(),
             display_name: info.display_name,
-            ip_address: "127.0.0.1".to_string(), // Mock always uses localhost
+            ip_address: "127.0.0.1".parse().unwrap(), // Mock always uses localhost
             port: info.port,
             fingerprint: info.fingerprint,
             metadata_version: info.metadata_version,
