@@ -111,7 +111,7 @@ async fn main() -> Result<()> {
 #[allow(clippy::too_many_lines)]
 async fn run_sender(args: &Args) -> Result<()> {
     // Step 1: Device discovery or direct connection
-    let (service_info, hostname) = if let Some(host) = &args.direct_host {
+    let (service_info, ip_address) = if let Some(host) = &args.direct_host {
         println!("- Using direct connection");
         println!("  Host: {host}");
         println!("  Port: {}", args.direct_port);
@@ -213,9 +213,9 @@ async fn run_sender(args: &Args) -> Result<()> {
         );
         println!();
 
-        let hostname = selected.ip_address;
+        let ip_address = selected.ip_address;
 
-        (selected.clone(), hostname)
+        (selected.clone(), ip_address)
     };
 
     // Step 2: Create Quinn client with expected fingerprint
@@ -262,9 +262,9 @@ async fn run_sender(args: &Args) -> Result<()> {
     );
     std::io::Write::flush(&mut std::io::stdout())?;
 
-    let server_addr = core::net::SocketAddr::new(hostname, service_info.port);
+    let server_addr = core::net::SocketAddr::new(ip_address, service_info.port);
 
-    match client.connect(server_addr, &hostname.to_string()).await {
+    match client.connect(server_addr, &ip_address.to_string()).await {
         Ok(()) => {
             println!("OK:");
             info!("QUIC connection and authentication complete");
