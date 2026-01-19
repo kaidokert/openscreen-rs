@@ -51,6 +51,29 @@ use tracing::{debug, error, info, trace};
 pub use openscreen_network;
 pub use server::{AuthenticatedConnection, QuinnServer};
 
+/// Generate a self-signed certificate with Subject CN set per W3C spec
+///
+/// Per W3C OpenScreen spec (network.bs lines 358-361):
+/// Subject Name: CN = [agent hostname]
+fn generate_self_signed_cert(hostname: &str) -> Result<(Vec<u8>, Vec<u8>), String> {
+    let key_pair =
+        rcgen::KeyPair::generate().map_err(|e| format!("Failed to generate key pair: {e}"))?;
+
+    let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()])
+        .map_err(|e| format!("Failed to create certificate parameters: {e}"))?;
+
+    // Set Subject CN per W3C spec
+    params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, hostname);
+
+    let cert = params
+        .self_signed(&key_pair)
+        .map_err(|e| format!("Failed to self-sign certificate: {e}"))?;
+
+    Ok((cert.der().to_vec(), key_pair.serialize_der()))
+}
+
 /// Errors that can occur in the Quinn adapter
 #[derive(Debug, Error)]
 pub enum QuinnError {
@@ -139,29 +162,8 @@ impl<C: CryptoProvider> QuinnClient<C> {
         // Generate self-signed certificate for the client
         // This is required for TLS fingerprint extraction per RFC 9382
         debug!("Generating self-signed client certificate");
-
-        // Per W3C OpenScreen spec: Subject CN must be set to agent hostname
-        // Using rcgen API directly to set both SAN and Subject CN
-        let hostname = "openscreen-client";
-        let key_pair = rcgen::KeyPair::generate()
-            .map_err(|e| QuinnError::Tls(format!("Failed to generate key pair: {e}")))?;
-
-        let mut params =
-            rcgen::CertificateParams::new(vec![hostname.to_string()]).map_err(|e| {
-                QuinnError::Tls(format!("Failed to create certificate parameters: {e}"))
-            })?;
-
-        // Set Subject CN per W3C spec (network.bs lines 358-361)
-        params
-            .distinguished_name
-            .push(rcgen::DnType::CommonName, hostname);
-
-        let cert = params
-            .self_signed(&key_pair)
-            .map_err(|e| QuinnError::Tls(format!("Failed to self-sign certificate: {e}")))?;
-
-        let cert_der = cert.der().to_vec();
-        let priv_key_der = key_pair.serialize_der();
+        let (cert_der, priv_key_der) =
+            generate_self_signed_cert("openscreen-client").map_err(QuinnError::Tls)?;
 
         // Create TLS client config with ALPN "osp"
         // Use FingerprintVerifier to reject mismatched fingerprints during TLS handshake
