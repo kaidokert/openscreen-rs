@@ -279,15 +279,10 @@ impl CertificateKey {
         let cert_pem_obj = pem::Pem::new("CERTIFICATE", self.cert_der.clone());
         let cert_pem = pem::encode(&cert_pem_obj);
 
-        // Re-create KeyPair from PKCS#8 DER to serialize as PEM
-        // Use ECDSA P-256 SHA-256 (same as used in generate())
-        let key_der_ref = rustls_pki_types::PrivatePkcs8KeyDer::from(self.key_der.as_slice());
-        let key_pair = rcgen::KeyPair::from_pkcs8_der_and_sign_algo(
-            &key_der_ref,
-            &rcgen::PKCS_ECDSA_P256_SHA256,
-        )
-        .context("Failed to deserialize key for PEM encoding")?;
-        let key_pem = key_pair.serialize_pem();
+        // Encode key_der as PEM
+        // The key is in PKCS#8 format, which uses the "PRIVATE KEY" tag
+        let key_pem_obj = pem::Pem::new("PRIVATE KEY", self.key_der.clone());
+        let key_pem = pem::encode(&key_pem_obj);
 
         std::fs::write(&cert_path, cert_pem)
             .with_context(|| format!("Failed to write certificate to {}", cert_path.display()))?;

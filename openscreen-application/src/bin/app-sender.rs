@@ -242,7 +242,10 @@ async fn run_sender(args: &Args) -> Result<()> {
     // Per W3C spec: both clients and servers need proper agent certificates with 160-bit serials
     let client_instance_name = match hostname::get() {
         Ok(s) => s.to_string_lossy().into_owned(),
-        Err(_) => "openscreen-sender".to_string(),
+        Err(e) => {
+            debug!("Failed to get system hostname: {e}, using fallback");
+            "openscreen-sender".to_string()
+        }
     };
 
     debug!("Using client instance name: {}", client_instance_name);
