@@ -23,12 +23,24 @@ use openscreen_crypto_rustcrypto::RustCryptoCryptoProvider;
 use openscreen_quinn::{QuinnClient, QuinnServer};
 use std::net::SocketAddr;
 
+/// Helper to generate test certificates (tests only - not W3C compliant)
+fn generate_test_cert(hostname: &str) -> (Vec<u8>, Vec<u8>) {
+    let key_pair = rcgen::KeyPair::generate().unwrap();
+    let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()]).unwrap();
+    params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, hostname);
+    let cert = params.self_signed(&key_pair).unwrap();
+    (cert.der().to_vec(), key_pair.serialize_der())
+}
+
 /// Test that TLS handshake succeeds when fingerprint matches
 #[tokio::test(flavor = "multi_thread")]
 async fn test_connection_succeeds_with_correct_fingerprint() {
     // Start a receiver (server)
     let server_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-    let server = QuinnServer::bind(server_addr, "test-psk", "test-server.local")
+    let (cert_der, key_der) = generate_test_cert("test-server.local");
+    let server = QuinnServer::bind(server_addr, "test-psk", cert_der, key_der, None)
         .await
         .expect("Failed to start server");
 
@@ -52,11 +64,13 @@ async fn test_connection_succeeds_with_correct_fingerprint() {
     // Create client with correct fingerprint and same PSK
     let crypto_provider = RustCryptoCryptoProvider::new();
     let client_bind: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let (cert_der, key_der) = generate_test_cert("test-client.local");
     let mut client = QuinnClient::new(
         crypto_provider,
         client_bind,
         server_fingerprint,
-        "test-client.local",
+        cert_der,
+        key_der,
     )
     .expect("Failed to create client");
 
@@ -106,7 +120,8 @@ async fn test_connection_succeeds_with_correct_fingerprint() {
 async fn test_connection_fails_with_wrong_fingerprint() {
     // Start a receiver (server)
     let server_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-    let server = QuinnServer::bind(server_addr, "test-psk", "test-server.local")
+    let (cert_der, key_der) = generate_test_cert("test-server.local");
+    let server = QuinnServer::bind(server_addr, "test-psk", cert_der, key_der, None)
         .await
         .expect("Failed to start server");
 
@@ -126,11 +141,13 @@ async fn test_connection_fails_with_wrong_fingerprint() {
     let wrong_fingerprint = [0x42u8; 32]; // Definitely wrong
     let crypto_provider = RustCryptoCryptoProvider::new();
     let client_bind: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let (cert_der, key_der) = generate_test_cert("test-client.local");
     let mut client = QuinnClient::new(
         crypto_provider,
         client_bind,
         wrong_fingerprint,
-        "test-client.local",
+        cert_der,
+        key_der,
     )
     .expect("Failed to create client");
 
@@ -181,7 +198,8 @@ async fn test_connection_fails_with_wrong_fingerprint() {
 async fn test_connection_fails_with_zero_fingerprint() {
     // Start a receiver (server)
     let server_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-    let server = QuinnServer::bind(server_addr, "test-psk", "test-server.local")
+    let (cert_der, key_der) = generate_test_cert("test-server.local");
+    let server = QuinnServer::bind(server_addr, "test-psk", cert_der, key_der, None)
         .await
         .expect("Failed to start server");
 
@@ -199,11 +217,13 @@ async fn test_connection_fails_with_zero_fingerprint() {
     let zero_fingerprint = [0u8; 32];
     let crypto_provider = RustCryptoCryptoProvider::new();
     let client_bind: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let (cert_der, key_der) = generate_test_cert("test-client.local");
     let mut client = QuinnClient::new(
         crypto_provider,
         client_bind,
         zero_fingerprint,
-        "test-client.local",
+        cert_der,
+        key_der,
     )
     .expect("Failed to create client");
 
@@ -236,7 +256,8 @@ async fn test_connection_fails_with_zero_fingerprint() {
 async fn test_multiple_clients_same_fingerprint() {
     // Start a receiver
     let server_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-    let server = QuinnServer::bind(server_addr, "test-psk", "test-server.local")
+    let (cert_der, key_der) = generate_test_cert("test-server.local");
+    let server = QuinnServer::bind(server_addr, "test-psk", cert_der, key_der, None)
         .await
         .expect("Failed to start server");
 
@@ -256,11 +277,13 @@ async fn test_multiple_clients_same_fingerprint() {
 
     // Client 1 with correct fingerprint
     let crypto1 = RustCryptoCryptoProvider::new();
+    let (cert_der1, key_der1) = generate_test_cert("test-client1.local");
     let mut client1 = QuinnClient::new(
         crypto1,
         "127.0.0.1:0".parse().unwrap(),
         server_fingerprint,
-        "test-client1.local",
+        cert_der1,
+        key_der1,
     )
     .expect("Failed to create client1");
     client1.set_psk(b"test-psk").expect("Failed to set PSK");
@@ -290,11 +313,13 @@ async fn test_multiple_clients_same_fingerprint() {
 
     // Client 2 (different client, same server fingerprint)
     let crypto2 = RustCryptoCryptoProvider::new();
+    let (cert_der2, key_der2) = generate_test_cert("test-client2.local");
     let mut client2 = QuinnClient::new(
         crypto2,
         "127.0.0.1:0".parse().unwrap(),
         server_fingerprint,
-        "test-client2.local",
+        cert_der2,
+        key_der2,
     )
     .expect("Failed to create client2");
     client2.set_psk(b"test-psk").expect("Failed to set PSK");

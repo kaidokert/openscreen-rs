@@ -24,13 +24,25 @@ use openscreen_crypto_rustcrypto::RustCryptoCryptoProvider;
 use openscreen_quinn::QuinnClient;
 use std::net::SocketAddr;
 
+/// Helper to generate test certificates (tests only - not W3C compliant)
+fn generate_test_cert(hostname: &str) -> (Vec<u8>, Vec<u8>) {
+    let key_pair = rcgen::KeyPair::generate().unwrap();
+    let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()]).unwrap();
+    params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, hostname);
+    let cert = params.self_signed(&key_pair).unwrap();
+    (cert.der().to_vec(), key_pair.serialize_der())
+}
+
 /// Helper to create a basic QUIC server that accepts one TLS connection
 /// Returns (server_addr, server_fingerprint, server_handle)
 async fn create_test_server(psk: &str) -> (SocketAddr, [u8; 32], tokio::task::JoinHandle<()>) {
     use openscreen_quinn::QuinnServer;
 
     let server_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-    let server = QuinnServer::bind(server_addr, psk, "test-server.local")
+    let (cert_der, key_der) = generate_test_cert("test-server.local");
+    let server = QuinnServer::bind(server_addr, psk, cert_der, key_der, None)
         .await
         .expect("Failed to start test server");
 
@@ -61,11 +73,13 @@ async fn test_tls_accepts_correct_fingerprint() {
     // Create client with CORRECT fingerprint
     let crypto_provider = RustCryptoCryptoProvider::new();
     let client_bind: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let (cert_der, key_der) = generate_test_cert("test-client.local");
     let mut client = QuinnClient::new(
         crypto_provider,
         client_bind,
         server_fingerprint,
-        "test-client.local",
+        cert_der,
+        key_der,
     )
     .expect("Failed to create client");
 
@@ -119,11 +133,13 @@ async fn test_tls_rejects_wrong_fingerprint() {
     let wrong_fingerprint = [0x42u8; 32]; // Definitely wrong!
     let crypto_provider = RustCryptoCryptoProvider::new();
     let client_bind: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let (cert_der, key_der) = generate_test_cert("test-client.local");
     let mut client = QuinnClient::new(
         crypto_provider,
         client_bind,
         wrong_fingerprint,
-        "test-client.local",
+        cert_der,
+        key_der,
     )
     .expect("Failed to create client");
 
@@ -176,11 +192,13 @@ async fn test_tls_rejects_zero_fingerprint() {
     let zero_fingerprint = [0u8; 32];
     let crypto_provider = RustCryptoCryptoProvider::new();
     let client_bind: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let (cert_der, key_der) = generate_test_cert("test-client.local");
     let mut client = QuinnClient::new(
         crypto_provider,
         client_bind,
         zero_fingerprint,
-        "test-client.local",
+        cert_der,
+        key_der,
     )
     .expect("Failed to create client");
 
@@ -224,11 +242,13 @@ async fn test_fingerprint_exact_match_required() {
 
     let crypto_provider = RustCryptoCryptoProvider::new();
     let client_bind: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let (cert_der, key_der) = generate_test_cert("test-client.local");
     let mut client = QuinnClient::new(
         crypto_provider,
         client_bind,
         almost_correct_fingerprint,
-        "test-client.local",
+        cert_der,
+        key_der,
     )
     .expect("Failed to create client");
 

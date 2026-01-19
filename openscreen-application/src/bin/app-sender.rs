@@ -264,7 +264,7 @@ async fn run_sender(args: &Args) -> Result<()> {
     let expected_fingerprint = *service_info.fingerprint.as_bytes();
 
     // Create client with spec-compliant agent certificate (160-bit serial)
-    let mut client = QuinnClient::new_with_cert(
+    let mut client = QuinnClient::new(
         crypto_provider,
         bind_addr,
         expected_fingerprint,

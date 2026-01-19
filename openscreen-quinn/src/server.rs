@@ -94,21 +94,20 @@ impl rustls::server::danger::ClientCertVerifier for AcceptAnyClientCert {
 ///
 /// ```no_run
 /// use openscreen_quinn::QuinnServer;
-/// use openscreen_application::cert::CertificateKey;
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     use std::net::SocketAddr;
 ///     let addr: SocketAddr = "0.0.0.0:4433".parse()?;
 ///
-///     // Generate W3C-compliant certificate with 160-bit serial
-///     let cert_key = CertificateKey::generate("test-server", "local")?;
-///     let (cert_der, key_der) = (
-///         cert_key.cert.cert.der().to_vec(),
-///         cert_key.cert.key_pair.serialize_der(),
-///     );
+///     // Generate test certificate (for production, use W3C-compliant certificates)
+///     let key_pair = rcgen::KeyPair::generate()?;
+///     let mut params = rcgen::CertificateParams::new(vec!["test-server.local".to_string()])?;
+///     params.distinguished_name.push(rcgen::DnType::CommonName, "test-server.local");
+///     let cert = params.self_signed(&key_pair)?;
+///     let (cert_der, key_der) = (cert.der().to_vec(), key_pair.serialize_der());
 ///
-///     let server = QuinnServer::bind_with_cert(addr, "test-psk", cert_der, key_der, None).await?;
+///     let server = QuinnServer::bind(addr, "test-psk", cert_der, key_der, None).await?;
 ///
 ///     while let Some(result) = server.accept().await {
 ///         match result {
@@ -136,18 +135,17 @@ pub struct QuinnServer {
 }
 
 impl QuinnServer {
-    /// Create and bind a new OpenScreen server with a provided certificate
-    ///
-    /// This variant allows you to provide your own certificate instead of generating one.
-    /// Useful for persistent identity and mDNS discovery integration.
+    /// Create and bind a new OpenScreen server with a W3C-compliant certificate
     ///
     /// # Arguments
     /// * `bind_addr` - Socket address to bind to (e.g., "0.0.0.0:4433")
     /// * `psk` - Pre-shared key for SPAKE2 authentication
-    /// * `cert_der` - DER-encoded certificate
+    /// * `cert_der` - DER-encoded certificate (use `openscreen_application::cert::CertificateKey`)
     /// * `key_der` - DER-encoded private key (PKCS#8 format)
     /// * `auth_token` - Optional authentication token from mDNS (for off-network attack prevention)
-    pub async fn bind_with_cert(
+    ///
+    /// The certificate MUST have a W3C-compliant 160-bit serial number (use `CertificateKey::generate()`).
+    pub async fn bind(
         bind_addr: impl Into<SocketAddr>,
         psk: impl Into<String>,
         cert_der: Vec<u8>,

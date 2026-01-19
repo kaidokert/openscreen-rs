@@ -169,10 +169,9 @@ async fn run_receiver(args: &Args) -> Result<()> {
     // Pass auth token to server for validation
     let auth_token_bytes = Some(auth_token.as_str().as_bytes().to_vec());
 
-    let server =
-        QuinnServer::bind_with_cert(bind_addr, &args.psk, cert_der, key_der, auth_token_bytes)
-            .await
-            .context("Failed to bind server")?;
+    let server = QuinnServer::bind(bind_addr, &args.psk, cert_der, key_der, auth_token_bytes)
+        .await
+        .context("Failed to bind server")?;
 
     println!("OK: Listening on {bind_addr}");
     println!("{}", "Waiting for connections...".bright_cyan());
