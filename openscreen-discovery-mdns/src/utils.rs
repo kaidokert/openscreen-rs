@@ -92,18 +92,15 @@ pub fn parse_txt_properties(
 /// For example: `My-Device._openscreen._udp.local.`
 ///
 /// This function extracts just the instance name (e.g., `My-Device`) for
-/// user-friendly display by stripping the service suffix.
+/// user-friendly display by taking the first component before the dot.
 ///
 /// # Arguments
 /// * `full_name` - The full mDNS service name
 ///
 /// # Returns
-/// The instance name suitable for display, or the full name if parsing fails
+/// The instance name suitable for display
 fn extract_display_name(full_name: &str) -> String {
-    full_name
-        .strip_suffix(&format!(".{}", crate::SERVICE_NAME))
-        .unwrap_or(full_name)
-        .to_string()
+    full_name.split('.').next().unwrap_or(full_name).to_string()
 }
 
 /// Build ServiceInfo from mdns-sd ResolvedService

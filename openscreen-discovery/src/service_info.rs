@@ -34,7 +34,7 @@ pub struct ServiceInfo {
     /// to ensure uniqueness).
     ///
     /// # Examples
-    /// - `Living Room TV._openscreen._tcp.local`
+    /// - `Living Room TV._openscreen._udp.local.`
     ///
     /// NOTE: This can change if there are name conflicts on the network
     pub instance_name: String,
