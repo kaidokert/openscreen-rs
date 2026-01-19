@@ -3,6 +3,7 @@ name = "openscreen-quinn"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+autobins = false
 
 [lints]
 workspace = true
@@ -10,13 +11,15 @@ workspace = true
 [lib]
 name = "openscreen_quinn"
 
-[[bin]]
-name = "openscreen-test"
-path = "src/bin/main.rs"
-
-[[bin]]
-name = "openscreen-receiver"
-path = "src/bin/receiver.rs"
+# Test binaries disabled - they use the old non-compliant API
+# Use openscreen-application binaries (app-sender, app-receiver) instead
+# [[bin]]
+# name = "openscreen-test"
+# path = "src/bin/main.rs"
+#
+# [[bin]]
+# name = "openscreen-receiver"
+# path = "src/bin/receiver.rs"
 
 [dependencies]
 openscreen-network = { path = "../openscreen-network" }

@@ -94,12 +94,21 @@ impl rustls::server::danger::ClientCertVerifier for AcceptAnyClientCert {
 ///
 /// ```no_run
 /// use openscreen_quinn::QuinnServer;
+/// use openscreen_application::cert::CertificateKey;
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     use std::net::SocketAddr;
 ///     let addr: SocketAddr = "0.0.0.0:4433".parse()?;
-///     let server = QuinnServer::bind(addr, "test-psk", "test-server.local").await?;
+///
+///     // Generate W3C-compliant certificate with 160-bit serial
+///     let cert_key = CertificateKey::generate("test-server", "local")?;
+///     let (cert_der, key_der) = (
+///         cert_key.cert.cert.der().to_vec(),
+///         cert_key.cert.key_pair.serialize_der(),
+///     );
+///
+///     let server = QuinnServer::bind_with_cert(addr, "test-psk", cert_der, key_der, None).await?;
 ///
 ///     while let Some(result) = server.accept().await {
 ///         match result {
@@ -127,55 +136,6 @@ pub struct QuinnServer {
 }
 
 impl QuinnServer {
-    /// Create and bind a new OpenScreen server
-    ///
-    /// # Arguments
-    /// * `bind_addr` - Socket address to bind to (e.g., "0.0.0.0:4433")
-    /// * `psk` - Pre-shared key for SPAKE2 authentication
-    /// * `hostname` - Agent hostname for certificate Subject CN (per W3C spec)
-    pub async fn bind(
-        bind_addr: impl Into<SocketAddr>,
-        psk: impl Into<String>,
-        hostname: &str,
-    ) -> Result<Self> {
-        let bind_addr = bind_addr.into();
-        let psk = psk.into();
-
-        debug!("Generating self-signed certificate");
-        let (cert_der, priv_key) = crate::generate_self_signed_cert(hostname)
-            .context("Failed to generate self-signed certificate")?;
-
-        debug!("Configuring TLS with client cert verifier");
-        let client_cert_verifier = Arc::new(AcceptAnyClientCert);
-
-        let mut server_crypto = rustls::ServerConfig::builder()
-            .with_client_cert_verifier(client_cert_verifier)
-            .with_single_cert(
-                vec![rustls::pki_types::CertificateDer::from(cert_der.clone())],
-                rustls::pki_types::PrivateKeyDer::Pkcs8(priv_key.into()),
-            )
-            .context("Failed to create TLS config")?;
-
-        server_crypto.alpn_protocols = vec![b"osp".to_vec()];
-
-        let server_config = quinn::ServerConfig::with_crypto(Arc::new(
-            quinn::crypto::rustls::QuicServerConfig::try_from(server_crypto)
-                .context("Failed to create QUIC server config")?,
-        ));
-
-        let endpoint = quinn::Endpoint::server(server_config, bind_addr)
-            .context("Failed to create endpoint")?;
-
-        info!("QuinnServer bound to {}", bind_addr);
-
-        Ok(Self {
-            endpoint,
-            psk,
-            cert_der,
-            auth_token: None,
-        })
-    }
-
     /// Create and bind a new OpenScreen server with a provided certificate
     ///
     /// This variant allows you to provide your own certificate instead of generating one.

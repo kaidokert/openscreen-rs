@@ -51,25 +51,6 @@ use tracing::{debug, error, info, trace};
 pub use openscreen_network;
 pub use server::{AuthenticatedConnection, QuinnServer};
 
-/// Generate a self-signed certificate with Subject CN set per W3C spec
-///
-/// Per W3C OpenScreen spec (network.bs lines 358-361):
-/// Subject Name: CN = [agent hostname]
-fn generate_self_signed_cert(hostname: &str) -> Result<(Vec<u8>, Vec<u8>), rcgen::Error> {
-    let key_pair = rcgen::KeyPair::generate()?;
-
-    let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()])?;
-
-    // Set Subject CN per W3C spec
-    params
-        .distinguished_name
-        .push(rcgen::DnType::CommonName, hostname);
-
-    let cert = params.self_signed(&key_pair)?;
-
-    Ok((cert.der().to_vec(), key_pair.serialize_der()))
-}
-
 /// Errors that can occur in the Quinn adapter
 #[derive(Debug, Error)]
 pub enum QuinnError {
@@ -135,46 +116,6 @@ pub struct QuinnClient<C: CryptoProvider> {
 }
 
 impl<C: CryptoProvider> QuinnClient<C> {
-    /// Create a new Quinn client with fingerprint verification
-    ///
-    /// This variant generates a simple self-signed certificate internally.
-    /// For full W3C spec compliance (160-bit serial number), use `new_with_cert()` instead.
-    ///
-    /// # Arguments
-    /// * `crypto_provider` - Implementation of CryptoProvider for crypto operations
-    /// * `bind_addr` - Local address to bind to (typically "0.0.0.0:0")
-    /// * `expected_fingerprint` - Expected SPKI fingerprint from mDNS discovery (for MITM protection)
-    /// * `hostname` - Agent hostname for certificate Subject CN (per W3C spec)
-    ///
-    /// # Returns
-    /// * `Ok(QuinnClient)` - Client successfully created
-    /// * `Err(QuinnError)` - Failed to create client
-    ///
-    /// # Security Note
-    ///
-    /// The `expected_fingerprint` MUST be the fingerprint from mDNS discovery (`fp=` TXT record).
-    /// The TLS handshake will reject connections to servers with mismatched fingerprints.
-    pub fn new(
-        crypto_provider: C,
-        bind_addr: SocketAddr,
-        expected_fingerprint: [u8; 32],
-        hostname: &str,
-    ) -> Result<Self, QuinnError> {
-        // Generate self-signed certificate for the client
-        // This is required for TLS fingerprint extraction per RFC 9382
-        debug!("Generating self-signed client certificate");
-        let (cert_der, priv_key_der) =
-            generate_self_signed_cert(hostname).map_err(|e| QuinnError::Tls(e.to_string()))?;
-
-        Self::new_with_cert(
-            crypto_provider,
-            bind_addr,
-            expected_fingerprint,
-            cert_der,
-            priv_key_der,
-        )
-    }
-
     /// Create a new Quinn client with a provided certificate
     ///
     /// This variant allows you to provide your own certificate with spec-compliant
