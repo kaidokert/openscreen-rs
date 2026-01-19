@@ -142,8 +142,8 @@ impl QuinnServer {
         let psk = psk.into();
 
         debug!("Generating self-signed certificate");
-        let (cert_der, priv_key) =
-            crate::generate_self_signed_cert(hostname).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let (cert_der, priv_key) = crate::generate_self_signed_cert(hostname)
+            .context("Failed to generate self-signed certificate")?;
 
         debug!("Configuring TLS with client cert verifier");
         let client_cert_verifier = Arc::new(AcceptAnyClientCert);
