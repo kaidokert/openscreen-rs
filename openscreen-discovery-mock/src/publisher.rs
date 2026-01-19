@@ -55,6 +55,7 @@ impl DiscoveryPublisher for MockPublisher {
         let service_info = ServiceInfo {
             instance_name: info.display_name.clone(),
             display_name: info.display_name,
+            hostname: info.hostname,
             ip_address: std::net::Ipv4Addr::LOCALHOST.into(), // Mock always uses localhost
             port: info.port,
             fingerprint: info.fingerprint,

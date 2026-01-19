@@ -26,12 +26,38 @@ use std::time::SystemTime;
 /// is the stable, cryptographic identity of the device.
 #[derive(Debug, Clone)]
 pub struct ServiceInfo {
-    /// Service instance name (from mDNS)
+    /// The unique identifier for this service instance on the local network.
+    ///
+    /// This is the mDNS service instance name, which serves as the primary identifier
+    /// for discovery. It may differ from the `display_name` if name conflicts occur
+    /// (e.g., mDNS may automatically rename "Living Room TV" to "Living Room TV (2)"
+    /// to ensure uniqueness).
+    ///
+    /// # Examples
+    /// - `Living Room TV._openscreen._tcp.local`
+    /// - `Living Room TV` (depending on abstraction)
+    ///
     /// NOTE: This can change if there are name conflicts on the network
     pub instance_name: String,
 
-    /// Display name (decoded from instance name)
+    /// The human-readable name intended for user interface display.
+    ///
+    /// This "friendly name" is what users typically see and interact with (e.g., "Living Room TV").
+    /// It is often derived from the `instance_name` (minus protocol suffixes) but generally
+    /// remains stable, unlike the `hostname` or `instance_name` which might change due to
+    /// network conflicts.
     pub display_name: String,
+
+    /// The DNS/mDNS hostname that resolves to the device's IP address.
+    ///
+    /// This value is used for network addressing and TLS Server Name Indication (SNI).
+    /// It represents the specific "server" hosting the service, which may host multiple
+    /// distinct services (e.g., OpenScreen, AirPlay).
+    ///
+    /// # Examples
+    /// - `b5e6-234a.local`
+    /// - `living-room-tv.local`
+    pub hostname: String,
 
     /// IP address (v4 or v6)
     pub ip_address: IpAddr,
@@ -166,6 +192,7 @@ mod tests {
         let info1 = ServiceInfo {
             instance_name: "Device 1".to_string(),
             display_name: "Device 1".to_string(),
+            hostname: "device1.local".to_string(),
             ip_address: "192.168.1.1".parse().unwrap(),
             port: 4433,
             fingerprint: fp1,
@@ -177,6 +204,7 @@ mod tests {
         let info2 = ServiceInfo {
             instance_name: "Device 1 (2)".to_string(), // Different name!
             display_name: "Device 1".to_string(),
+            hostname: "device1.local".to_string(),
             ip_address: "192.168.1.2".parse().unwrap(), // Different ip!
             port: 5544,                                 // Different port!
             fingerprint: fp1,                           // Same fingerprint
@@ -188,6 +216,7 @@ mod tests {
         let info3 = ServiceInfo {
             instance_name: "Device 1".to_string(),
             display_name: "Device 1".to_string(),
+            hostname: "device1.local".to_string(),
             ip_address: "192.168.1.1".parse().unwrap(),
             port: 4433,
             fingerprint: fp2, // Different fingerprint

@@ -89,7 +89,7 @@ pub fn parse_txt_properties(
 /// Build ServiceInfo from mdns-sd ResolvedService
 ///
 /// Converts from mdns-sd types to our ServiceInfo
-pub fn service_info_from_mdns_resolved(
+pub fn service_info_from_mdns(
     mdns_info: &mdns_sd::ResolvedService,
 ) -> Result<ServiceInfo, ParseError> {
     let (fingerprint, metadata_version, auth_token) =
@@ -121,6 +121,7 @@ pub fn service_info_from_mdns_resolved(
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
         display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
+        hostname: mdns_info.get_hostname().trim_end_matches('.').to_string(),
         ip_address,
         port: mdns_info.get_port(),
         fingerprint,

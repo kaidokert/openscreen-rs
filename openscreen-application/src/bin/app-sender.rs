@@ -157,6 +157,7 @@ async fn run_sender(args: &Args) -> Result<()> {
         let service_info = ServiceInfo {
             instance_name: host.clone(),
             display_name: host.clone(),
+            hostname: host.clone(),
             ip_address,
             port: args.direct_port,
             fingerprint,
@@ -264,7 +265,7 @@ async fn run_sender(args: &Args) -> Result<()> {
 
     let server_addr = core::net::SocketAddr::new(ip_address, service_info.port);
 
-    match client.connect(server_addr, &ip_address.to_string()).await {
+    match client.connect(server_addr, &service_info.hostname).await {
         Ok(()) => {
             println!("OK:");
             info!("QUIC connection and authentication complete");
