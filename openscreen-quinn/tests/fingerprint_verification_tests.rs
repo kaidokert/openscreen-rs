@@ -19,20 +19,12 @@
 //!
 //! Note: These tests verify TLS-level fingerprint verification only, not full SPAKE2 authentication.
 
+mod common;
+
+use common::generate_test_cert;
 use openscreen_crypto_rustcrypto::RustCryptoCryptoProvider;
 use openscreen_quinn::{QuinnClient, QuinnServer};
 use std::net::SocketAddr;
-
-/// Helper to generate test certificates (tests only - not W3C compliant)
-fn generate_test_cert(hostname: &str) -> (Vec<u8>, Vec<u8>) {
-    let key_pair = rcgen::KeyPair::generate().unwrap();
-    let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()]).unwrap();
-    params
-        .distinguished_name
-        .push(rcgen::DnType::CommonName, hostname);
-    let cert = params.self_signed(&key_pair).unwrap();
-    (cert.der().to_vec(), key_pair.serialize_der())
-}
 
 /// Test that TLS handshake succeeds when fingerprint matches
 #[tokio::test(flavor = "multi_thread")]

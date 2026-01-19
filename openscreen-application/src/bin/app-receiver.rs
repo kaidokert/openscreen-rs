@@ -162,7 +162,7 @@ async fn run_receiver(args: &Args) -> Result<()> {
 
     // Convert rcgen certificate to Quinn format
     let (cert_der, key_der) = (
-        cert_key.cert.cert.der().to_vec(),
+        cert_key.cert_der.clone(),
         cert_key.cert.key_pair.serialize_der(),
     );
 
