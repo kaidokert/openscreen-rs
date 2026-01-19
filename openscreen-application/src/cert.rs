@@ -213,7 +213,7 @@ impl CertificateKey {
 
         let cert_der = cert.der().to_vec();
 
-        // Calculate fingerprint (SPKI per spec, not full cert - to be fixed in #1)
+        // Calculate fingerprint (SPKI SHA-256 per W3C spec)
         let fingerprint = Fingerprint::from_der_cert(&cert_der)
             .map_err(|e| anyhow::anyhow!("Failed to calculate fingerprint: {e:?}"))?;
 
@@ -248,7 +248,7 @@ impl CertificateKey {
             .contents()
             .to_vec();
 
-        // Calculate fingerprint
+        // Calculate fingerprint (SPKI SHA-256 per W3C spec)
         let fingerprint = Fingerprint::from_der_cert(&cert_der)
             .map_err(|e| anyhow::anyhow!("Failed to calculate fingerprint: {e:?}"))?;
 

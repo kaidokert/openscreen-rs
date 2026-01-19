@@ -240,10 +240,10 @@ async fn run_sender(args: &Args) -> Result<()> {
 
     // Generate ephemeral client certificate with device hostname
     // Per W3C spec: both clients and servers need proper agent certificates with 160-bit serials
-    let client_instance_name = hostname::get()
-        .ok()
-        .and_then(|h| h.into_string().ok())
-        .unwrap_or_else(|| "openscreen-sender".to_string());
+    let client_instance_name = match hostname::get() {
+        Ok(s) => s.to_string_lossy().into_owned(),
+        Err(_) => "openscreen-sender".to_string(),
+    };
 
     debug!("Using client instance name: {}", client_instance_name);
 
