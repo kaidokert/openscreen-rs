@@ -116,9 +116,23 @@ async fn run_sender(args: &Args) -> Result<()> {
         println!("  Host: {host}");
         println!("  Port: {}", args.direct_port);
 
-        let ip_address: core::net::IpAddr = host
-            .parse()
-            .context("Failed to parse direct host as IP address")?;
+        // Resolve hostname to IP address (accepts both hostnames and IP addresses)
+        // Prefer IPv4 addresses for consistency with mDNS discovery behavior
+        let socket_addr = {
+            let addrs: Vec<_> = tokio::net::lookup_host((host.as_str(), args.direct_port))
+                .await
+                .context(format!("Failed to resolve host '{host}'"))?
+                .collect();
+            addrs
+                .iter()
+                .find(|addr| addr.is_ipv4())
+                .or_else(|| addrs.first())
+                .copied()
+                .context(format!("No addresses found for host '{host}'"))?
+        };
+
+        let ip_address = socket_addr.ip();
+        info!("Resolved '{host}' to {ip_address}");
 
         // Parse fingerprint if provided, otherwise use dummy (all zeros)
         let fingerprint = if let Some(fp_hex) = &args.expected_fingerprint {
