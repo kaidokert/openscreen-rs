@@ -177,8 +177,13 @@ async fn run_connection_test(
 
     let crypto_provider = RustCryptoCryptoProvider::new();
     let bind_addr = "0.0.0.0:0".parse().unwrap();
-    let mut client = QuinnClient::new(crypto_provider, bind_addr, dummy_fingerprint)
-        .context("Failed to create Quinn client")?;
+    let mut client = QuinnClient::new(
+        crypto_provider,
+        bind_addr,
+        dummy_fingerprint,
+        "openscreen-client",
+    )
+    .context("Failed to create Quinn client")?;
 
     println!("{}", "✓".bright_green());
     debug!(

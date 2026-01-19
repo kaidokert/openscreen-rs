@@ -99,7 +99,7 @@ impl rustls::server::danger::ClientCertVerifier for AcceptAnyClientCert {
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     use std::net::SocketAddr;
 ///     let addr: SocketAddr = "0.0.0.0:4433".parse()?;
-///     let server = QuinnServer::bind(addr, "test-psk").await?;
+///     let server = QuinnServer::bind(addr, "test-psk", "test-server.local").await?;
 ///
 ///     while let Some(result) = server.accept().await {
 ///         match result {
@@ -132,13 +132,18 @@ impl QuinnServer {
     /// # Arguments
     /// * `bind_addr` - Socket address to bind to (e.g., "0.0.0.0:4433")
     /// * `psk` - Pre-shared key for SPAKE2 authentication
-    pub async fn bind(bind_addr: impl Into<SocketAddr>, psk: impl Into<String>) -> Result<Self> {
+    /// * `hostname` - Agent hostname for certificate Subject CN (per W3C spec)
+    pub async fn bind(
+        bind_addr: impl Into<SocketAddr>,
+        psk: impl Into<String>,
+        hostname: &str,
+    ) -> Result<Self> {
         let bind_addr = bind_addr.into();
         let psk = psk.into();
 
         debug!("Generating self-signed certificate");
         let (cert_der, priv_key) =
-            crate::generate_self_signed_cert("localhost").map_err(|e| anyhow::anyhow!("{e}"))?;
+            crate::generate_self_signed_cert(hostname).map_err(|e| anyhow::anyhow!("{e}"))?;
 
         debug!("Configuring TLS with client cert verifier");
         let client_cert_verifier = Arc::new(AcceptAnyClientCert);

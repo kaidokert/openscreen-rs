@@ -104,9 +104,8 @@ async fn main() -> Result<()> {
 async fn run_receiver(args: &Args) -> Result<()> {
     // Step 1: Load or generate certificate
     println!("WAIT: Loading certificate...");
-    let cert_key =
-        CertificateKey::load_or_generate(&args.cert_dir, "receiver", "_openscreen._tcp.local")
-            .context("Failed to load/generate certificate")?;
+    let cert_key = CertificateKey::load_or_generate(&args.cert_dir, &args.name, "local")
+        .context("Failed to load/generate certificate")?;
 
     println!("OK: Certificate loaded");
     println!(

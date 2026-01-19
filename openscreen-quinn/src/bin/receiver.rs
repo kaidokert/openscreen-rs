@@ -126,7 +126,7 @@ async fn run_receiver(port: u16, psk: &str) -> Result<()> {
     let bind_addr = format!("0.0.0.0:{port}").parse::<std::net::SocketAddr>()?;
 
     println!("WAIT: Initializing server...");
-    let server = QuinnServer::bind(bind_addr, psk).await?;
+    let server = QuinnServer::bind(bind_addr, psk, "localhost").await?;
 
     println!("{}", "Waiting for connections...".bright_cyan());
     println!();

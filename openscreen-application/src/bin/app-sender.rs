@@ -23,6 +23,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use colored::Colorize;
+use openscreen_application::cert::CertificateKey;
 use openscreen_application::messages::{AgentInfoRequest, AgentInfoResponse};
 use openscreen_crypto_rustcrypto::RustCryptoCryptoProvider;
 use openscreen_discovery::{DiscoveryBrowser, ServiceInfo};
@@ -237,19 +238,43 @@ async fn run_sender(args: &Args) -> Result<()> {
     print!("{}", "WAIT: Initializing QUIC client... ".bright_yellow());
     std::io::Write::flush(&mut std::io::stdout())?;
 
+    // Generate ephemeral client certificate with device hostname
+    // Per W3C spec: both clients and servers need proper agent hostnames
+    let client_instance_name = hostname::get()
+        .ok()
+        .and_then(|h| h.into_string().ok())
+        .unwrap_or_else(|| "openscreen-sender".to_string());
+
+    debug!("Using client instance name: {}", client_instance_name);
+
+    // Generate ephemeral certificate (not persisted, per-session)
+    let client_cert = CertificateKey::generate(&client_instance_name, "local")
+        .context("Failed to generate client certificate")?;
+
+    debug!(
+        "Generated client certificate with hostname: {}",
+        client_cert.hostname
+    );
+
     let crypto_provider = RustCryptoCryptoProvider::new();
     let bind_addr = "0.0.0.0:0".parse().unwrap();
 
     // Get expected fingerprint from mDNS discovery (for MITM protection)
     let expected_fingerprint = *service_info.fingerprint.as_bytes();
 
-    let mut client = QuinnClient::new(crypto_provider, bind_addr, expected_fingerprint)
-        .context("Failed to create Quinn client")?;
+    // Create client with spec-compliant agent hostname
+    let mut client = QuinnClient::new(
+        crypto_provider,
+        bind_addr,
+        expected_fingerprint,
+        &client_cert.hostname,
+    )
+    .context("Failed to create Quinn client")?;
 
     println!("OK:");
     debug!(
-        "Quinn client initialized with bind address {} and fingerprint verification",
-        bind_addr
+        "Quinn client initialized with hostname {} and fingerprint verification",
+        client_cert.hostname
     );
 
     // Step 3: Configure PSK and auth token
