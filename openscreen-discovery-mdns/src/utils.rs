@@ -130,49 +130,6 @@ pub fn service_info_from_mdns_resolved(
     })
 }
 
-/// Build ServiceInfo from mdns-sd ServiceInfo
-///
-/// Converts from mdns-sd types to our ServiceInfo
-#[allow(dead_code)]
-pub fn service_info_from_mdns(mdns_info: &mdns_sd::ServiceInfo) -> Result<ServiceInfo, ParseError> {
-    let (fingerprint, metadata_version, auth_token) =
-        parse_txt_properties(mdns_info.get_properties())?;
-
-    // Get host address: Prefer IPv4 over IPv6, and non-link-local over link-local
-    // Link-local IPv6 addresses (fe80::...) often include zone IDs (%lo0, %eth0, etc.)
-    // which can't be parsed as socket addresses. IPv4 addresses are more reliable.
-    let addresses = mdns_info.get_addresses();
-
-    // Try to find an IPv4 address first
-    let host = addresses
-        .iter()
-        .find(|addr| addr.is_ipv4())
-        .or_else(|| {
-            // If no IPv4, try to find a non-link-local IPv6 address
-            addresses
-                .iter()
-                .find(|addr| addr.is_ipv6() && !addr.to_string().starts_with("fe80:"))
-        })
-        .or_else(|| {
-            // Last resort: use any address and strip zone ID if present
-            addresses.iter().next()
-        })
-        .ok_or(ParseError::NoAddress)?;
-
-    let ip_address = *host;
-
-    Ok(ServiceInfo {
-        instance_name: mdns_info.get_fullname().to_string(),
-        display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
-        ip_address,
-        port: mdns_info.get_port(),
-        fingerprint,
-        metadata_version,
-        auth_token: openscreen_discovery::AuthToken::from_string(auth_token),
-        discovered_at: SystemTime::now(),
-    })
-}
-
 /// Errors that can occur when parsing mDNS service info
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
