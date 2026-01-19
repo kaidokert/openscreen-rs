@@ -137,6 +137,9 @@ pub struct QuinnClient<C: CryptoProvider> {
 impl<C: CryptoProvider> QuinnClient<C> {
     /// Create a new Quinn client with fingerprint verification
     ///
+    /// This variant generates a simple self-signed certificate internally.
+    /// For full W3C spec compliance (160-bit serial number), use `new_with_cert()` instead.
+    ///
     /// # Arguments
     /// * `crypto_provider` - Implementation of CryptoProvider for crypto operations
     /// * `bind_addr` - Local address to bind to (typically "0.0.0.0:0")
@@ -163,6 +166,44 @@ impl<C: CryptoProvider> QuinnClient<C> {
         let (cert_der, priv_key_der) =
             generate_self_signed_cert(hostname).map_err(|e| QuinnError::Tls(e.to_string()))?;
 
+        Self::new_with_cert(
+            crypto_provider,
+            bind_addr,
+            expected_fingerprint,
+            cert_der,
+            priv_key_der,
+        )
+    }
+
+    /// Create a new Quinn client with a provided certificate
+    ///
+    /// This variant allows you to provide your own certificate with spec-compliant
+    /// 160-bit serial number. This is the recommended method for production use.
+    ///
+    /// # Arguments
+    /// * `crypto_provider` - Implementation of CryptoProvider for crypto operations
+    /// * `bind_addr` - Local address to bind to (typically "0.0.0.0:0")
+    /// * `expected_fingerprint` - Expected SPKI fingerprint from mDNS discovery (for MITM protection)
+    /// * `cert_der` - DER-encoded certificate
+    /// * `key_der` - DER-encoded private key (PKCS#8 format)
+    ///
+    /// # Returns
+    /// * `Ok(QuinnClient)` - Client successfully created
+    /// * `Err(QuinnError)` - Failed to create client
+    ///
+    /// # Security Note
+    ///
+    /// The `expected_fingerprint` MUST be the fingerprint from mDNS discovery (`fp=` TXT record).
+    /// The TLS handshake will reject connections to servers with mismatched fingerprints.
+    pub fn new_with_cert(
+        crypto_provider: C,
+        bind_addr: SocketAddr,
+        expected_fingerprint: [u8; 32],
+        cert_der: Vec<u8>,
+        key_der: Vec<u8>,
+    ) -> Result<Self, QuinnError> {
+        debug!("Configuring TLS with provided certificate");
+
         // Create TLS client config with ALPN "osp"
         // Use FingerprintVerifier to reject mismatched fingerprints during TLS handshake
         let mut crypto = rustls::ClientConfig::builder()
@@ -172,7 +213,7 @@ impl<C: CryptoProvider> QuinnClient<C> {
             )))
             .with_client_auth_cert(
                 vec![CertificateDer::from(cert_der.clone())],
-                rustls::pki_types::PrivateKeyDer::Pkcs8(priv_key_der.into()),
+                rustls::pki_types::PrivateKeyDer::Pkcs8(key_der.into()),
             )
             .map_err(|e| QuinnError::Tls(format!("Failed to configure TLS: {e}")))?;
 

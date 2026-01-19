@@ -23,7 +23,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use colored::Colorize;
-use openscreen_application::cert;
+use openscreen_application::cert::CertificateKey;
 use openscreen_application::messages::{AgentInfoRequest, AgentInfoResponse};
 use openscreen_crypto_rustcrypto::RustCryptoCryptoProvider;
 use openscreen_discovery::{DiscoveryBrowser, ServiceInfo};
@@ -238,8 +238,8 @@ async fn run_sender(args: &Args) -> Result<()> {
     print!("{}", "WAIT: Initializing QUIC client... ".bright_yellow());
     std::io::Write::flush(&mut std::io::stdout())?;
 
-    // Generate ephemeral client hostname with device hostname
-    // Per W3C spec: both clients and servers need proper agent hostnames
+    // Generate ephemeral client certificate with device hostname
+    // Per W3C spec: both clients and servers need proper agent certificates with 160-bit serials
     let client_instance_name = hostname::get()
         .ok()
         .and_then(|h| h.into_string().ok())
@@ -247,11 +247,15 @@ async fn run_sender(args: &Args) -> Result<()> {
 
     debug!("Using client instance name: {}", client_instance_name);
 
-    // Compute client hostname directly (no need to generate full certificate)
-    let serial = cert::SerialNumber::generate();
-    let client_hostname = cert::compute_hostname(&serial, &client_instance_name, "local");
+    // Generate ephemeral certificate (not persisted, per-session)
+    // This is THE agent certificate used in TLS handshake (not regenerated at QUIC layer)
+    let client_cert = CertificateKey::generate(&client_instance_name, "local")
+        .context("Failed to generate client certificate")?;
 
-    debug!("Using client hostname: {}", client_hostname);
+    debug!(
+        "Generated client certificate with hostname: {}",
+        client_cert.hostname
+    );
 
     let crypto_provider = RustCryptoCryptoProvider::new();
     let bind_addr = "0.0.0.0:0".parse().unwrap();
@@ -259,19 +263,20 @@ async fn run_sender(args: &Args) -> Result<()> {
     // Get expected fingerprint from mDNS discovery (for MITM protection)
     let expected_fingerprint = *service_info.fingerprint.as_bytes();
 
-    // Create client with spec-compliant agent hostname
-    let mut client = QuinnClient::new(
+    // Create client with spec-compliant agent certificate (160-bit serial)
+    let mut client = QuinnClient::new_with_cert(
         crypto_provider,
         bind_addr,
         expected_fingerprint,
-        &client_hostname,
+        client_cert.cert.cert.der().to_vec(),
+        client_cert.cert.key_pair.serialize_der(),
     )
     .context("Failed to create Quinn client")?;
 
     println!("OK:");
     debug!(
         "Quinn client initialized with hostname {} and fingerprint verification",
-        client_hostname
+        client_cert.hostname
     );
 
     // Step 3: Configure PSK and auth token
