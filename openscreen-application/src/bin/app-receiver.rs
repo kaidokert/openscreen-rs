@@ -161,10 +161,7 @@ async fn run_receiver(args: &Args) -> Result<()> {
     println!("WAIT: Initializing QUIC server...");
 
     // Convert rcgen certificate to Quinn format
-    let (cert_der, key_der) = (
-        cert_key.cert_der.clone(),
-        cert_key.cert.key_pair.serialize_der(),
-    );
+    let (cert_der, key_der) = (cert_key.cert_der, cert_key.cert.key_pair.serialize_der());
 
     // Pass auth token to server for validation
     let auth_token_bytes = Some(auth_token.as_str().as_bytes().to_vec());

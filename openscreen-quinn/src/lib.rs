@@ -917,7 +917,7 @@ mod tests {
             crypto,
             "0.0.0.0:0".parse().unwrap(),
             expected_fp,
-            cert_der.clone(),
+            cert_der,
             key_der,
         )
         .expect("Failed to create QuinnClient");
