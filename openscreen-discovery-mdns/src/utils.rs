@@ -86,10 +86,27 @@ pub fn parse_txt_properties(
     Ok((fingerprint, metadata_version, auth_token))
 }
 
+/// Extract display name from mDNS full service name
+///
+/// The full mDNS service name has the format: `<instance>.<service>`
+/// For example: `My-Device._openscreen._udp.local.`
+///
+/// This function extracts just the instance name (e.g., `My-Device`) for
+/// user-friendly display by taking the first component before the dot.
+///
+/// # Arguments
+/// * `full_name` - The full mDNS service name
+///
+/// # Returns
+/// The instance name suitable for display
+fn extract_display_name(full_name: &str) -> String {
+    full_name.split('.').next().unwrap_or(full_name).to_string()
+}
+
 /// Build ServiceInfo from mdns-sd ResolvedService
 ///
 /// Converts from mdns-sd types to our ServiceInfo
-pub fn service_info_from_mdns_resolved(
+pub fn service_info_from_mdns(
     mdns_info: &mdns_sd::ResolvedService,
 ) -> Result<ServiceInfo, ParseError> {
     let (fingerprint, metadata_version, auth_token) =
@@ -120,7 +137,8 @@ pub fn service_info_from_mdns_resolved(
 
     Ok(ServiceInfo {
         instance_name: mdns_info.get_fullname().to_string(),
-        display_name: mdns_info.get_fullname().to_string(), // Will be cleaned up
+        display_name: extract_display_name(mdns_info.get_fullname()),
+        hostname: mdns_info.get_hostname().trim_end_matches('.').to_string(),
         ip_address,
         port: mdns_info.get_port(),
         fingerprint,
@@ -170,6 +188,33 @@ mod tests {
         let sanitized = sanitize_instance_name(&name);
         assert_eq!(sanitized.len(), 63);
         assert!(!sanitized.ends_with('\0'));
+    }
+
+    #[test]
+    fn test_extract_display_name() {
+        // Normal case: full service name with service suffix
+        assert_eq!(
+            extract_display_name("My-Device._openscreen._udp.local."),
+            "My-Device"
+        );
+
+        // Edge case: just the instance name (no suffix)
+        assert_eq!(extract_display_name("My-Device"), "My-Device");
+
+        // Edge case: empty string
+        assert_eq!(extract_display_name(""), "");
+
+        // Real-world example with spaces
+        assert_eq!(
+            extract_display_name("Living Room TV._openscreen._udp.local."),
+            "Living Room TV"
+        );
+
+        // Name conflict case (mDNS added number)
+        assert_eq!(
+            extract_display_name("My-Device (2)._openscreen._udp.local."),
+            "My-Device (2)"
+        );
     }
 
     #[test]

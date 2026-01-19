@@ -128,6 +128,7 @@ mod tests {
         ServiceInfo {
             instance_name: name.to_string(),
             display_name: name.to_string(),
+            hostname: format!("{name}.local"),
             ip_address: std::net::Ipv4Addr::LOCALHOST.into(),
             port: 4433,
             fingerprint: Fingerprint::from_bytes([1u8; 32]),
