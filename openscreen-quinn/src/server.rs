@@ -137,10 +137,26 @@ impl QuinnServer {
         let psk = psk.into();
 
         debug!("Generating self-signed certificate");
-        let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])
-            .context("Failed to generate certificate")?;
-        let cert_der = cert.cert.der().to_vec();
-        let priv_key = cert.key_pair.serialize_der();
+
+        // Per W3C OpenScreen spec: Subject CN must be set to agent hostname
+        // Using rcgen API directly to set both SAN and Subject CN
+        let hostname = "localhost";
+        let key_pair = rcgen::KeyPair::generate().context("Failed to generate key pair")?;
+
+        let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()])
+            .context("Failed to create certificate parameters")?;
+
+        // Set Subject CN per W3C spec (network.bs lines 358-361)
+        params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, hostname);
+
+        let cert = params
+            .self_signed(&key_pair)
+            .context("Failed to self-sign certificate")?;
+
+        let cert_der = cert.der().to_vec();
+        let priv_key = key_pair.serialize_der();
 
         debug!("Configuring TLS with client cert verifier");
         let client_cert_verifier = Arc::new(AcceptAnyClientCert);

@@ -139,11 +139,29 @@ impl<C: CryptoProvider> QuinnClient<C> {
         // Generate self-signed certificate for the client
         // This is required for TLS fingerprint extraction per RFC 9382
         debug!("Generating self-signed client certificate");
-        let cert = rcgen::generate_simple_self_signed(vec!["openscreen-client".into()])
-            .map_err(|e| QuinnError::Tls(format!("Failed to generate certificate: {e}")))?;
 
-        let cert_der = cert.cert.der().to_vec();
-        let priv_key_der = cert.key_pair.serialize_der();
+        // Per W3C OpenScreen spec: Subject CN must be set to agent hostname
+        // Using rcgen API directly to set both SAN and Subject CN
+        let hostname = "openscreen-client";
+        let key_pair = rcgen::KeyPair::generate()
+            .map_err(|e| QuinnError::Tls(format!("Failed to generate key pair: {e}")))?;
+
+        let mut params =
+            rcgen::CertificateParams::new(vec![hostname.to_string()]).map_err(|e| {
+                QuinnError::Tls(format!("Failed to create certificate parameters: {e}"))
+            })?;
+
+        // Set Subject CN per W3C spec (network.bs lines 358-361)
+        params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, hostname);
+
+        let cert = params
+            .self_signed(&key_pair)
+            .map_err(|e| QuinnError::Tls(format!("Failed to self-sign certificate: {e}")))?;
+
+        let cert_der = cert.der().to_vec();
+        let priv_key_der = key_pair.serialize_der();
 
         // Create TLS client config with ALPN "osp"
         // Use FingerprintVerifier to reject mismatched fingerprints during TLS handshake
@@ -889,6 +907,32 @@ impl rustls::client::danger::ServerCertVerifier for FingerprintVerifier {
 mod tests {
     use super::*;
     use openscreen_crypto::MockCryptoProvider;
+
+    #[test]
+    fn test_client_cert_has_subject_cn() {
+        // Verify that generated certificates have Subject CN set per W3C spec
+        let hostname = "openscreen-client";
+        let key_pair = rcgen::KeyPair::generate().unwrap();
+        let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()]).unwrap();
+        params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, hostname);
+        let cert = params.self_signed(&key_pair).unwrap();
+        let cert_der = cert.der();
+
+        // Parse certificate and verify CN
+        use x509_parser::prelude::*;
+        let (_, x509_cert) = X509Certificate::from_der(cert_der).unwrap();
+
+        // Check Subject CN
+        let subject = x509_cert.subject();
+        let cn = subject.iter_common_name().next().unwrap();
+        assert_eq!(
+            cn.as_str().unwrap(),
+            hostname,
+            "Subject CN must be set to hostname per W3C spec"
+        );
+    }
 
     #[tokio::test]
     async fn test_create_client() {
