@@ -198,7 +198,7 @@ impl Codec for VarInt {
         Ok(Self(x))
     }
 
-    // Pre-existing in upstream
+    // Pre-existing in upstream: Truncation is safe due to preceding bounds checks
     #[allow(clippy::cast_possible_truncation)]
     fn encode<B: BufMut>(&self, w: &mut B) {
         let x = self.0;
