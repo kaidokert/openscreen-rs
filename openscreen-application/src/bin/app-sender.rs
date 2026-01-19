@@ -269,7 +269,7 @@ async fn run_sender(args: &Args) -> Result<()> {
         bind_addr,
         expected_fingerprint,
         client_cert.cert_der.clone(),
-        client_cert.cert.key_pair.serialize_der(),
+        client_cert.key_der.clone(),
     )
     .context("Failed to create Quinn client")?;
 
