@@ -890,13 +890,19 @@ mod tests {
     use openscreen_crypto::MockCryptoProvider;
 
     /// Helper to generate test certificates (tests only - not W3C compliant)
+    ///
+    /// Note: This is intentionally separate from tests/common/mod.rs because unit tests
+    /// in src/ and integration tests in tests/ typically have separate test utilities.
     fn generate_test_cert(hostname: &str) -> (Vec<u8>, Vec<u8>) {
-        let key_pair = rcgen::KeyPair::generate().unwrap();
-        let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()]).unwrap();
+        let key_pair = rcgen::KeyPair::generate().expect("Failed to generate key pair");
+        let mut params = rcgen::CertificateParams::new(vec![hostname.to_string()])
+            .expect("Failed to create certificate params");
         params
             .distinguished_name
             .push(rcgen::DnType::CommonName, hostname);
-        let cert = params.self_signed(&key_pair).unwrap();
+        let cert = params
+            .self_signed(&key_pair)
+            .expect("Failed to self-sign certificate");
         (cert.der().to_vec(), key_pair.serialize_der())
     }
 
